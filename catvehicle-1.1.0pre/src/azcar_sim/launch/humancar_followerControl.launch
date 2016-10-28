@@ -1,0 +1,96 @@
+<!--
+
+Author: Jonathan Sprinkle, Sam Taylor, Alex Warren, Rahul Kumar Bhadani
+Copyright (c) 2015 Arizona Board of Regents
+All rights reserved.
+
+Permission is hereby granted, without written agreement and without 
+license or royalty fees, to use, copy, modify, and distribute this
+software and its documentation for any purpose, provided that the 
+above copyright notice and the following two paragraphs appear in 
+all copies of this software.
+
+IN NO EVENT SHALL THE ARIZONA BOARD OF REGENTS BE LIABLE TO ANY PARTY 
+FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES 
+ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN 
+IF THE UNIVERSITY OF CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF 
+SUCH DAMAGE.
+
+THE ARIZONA BOARD OF REGENTS SPECIFICALLY DISCLAIMS ANY WARRANTIES, 
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY 
+AND FITNESS FOR A PARTICULAR PURPOSE. THE SOFTWARE PROVIDED HEREUNDER
+IS ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION
+TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+
+Summary: 
+=======
+This launch file loads the worlds and models for the follower car
+
+This is light weight verion of launch file with plugins follower control plugin loaded to the car. Car will follow depending upon the controller law with respect
+leader.
+
+leader_robot is the leader car.
+
+follower_robot is the follower car that follows the leader car based on the control law written in the control plugin 
+
+Prerequisite to execute this launch file:
+========================================
+
+1. Load the empty world:
+
+roslaunch azcar_sim azcar_empty.launch
+
+2. Load one leader car with or without velocity profile attached to it. If you load the leader car without velocity profile applied to it,
+by any other means you should apply velocity profile to the leader car in order for follower car to use follower control law.
+
+Eg.
+
+roslaunch azcar_sim humancar_leadcmd.launch
+
+How to execute it?
+=================
+
+roslaunch azcar_sim humancar_followerControl.launch leader_robot:=azcar_sim follower_robot:=follower_sim X:=0 Y:=0 Z:=0 roll:=0 pitch:=0 roll:=0 yaw:=0
+
+-->
+
+
+<launch>
+
+      <param name="enable_statistics" value="true" />
+      <arg name="leader_robot" default="humanleader_sim"/>
+      <arg name="follower_robot" default="humanfollower_sim"/>
+	  <arg name="X" default="1"/>
+	  <arg name="Y" default="1"/>
+	  <arg name="Z" default="0"/>
+	  <arg name="roll" default="0"/>
+	  <arg name="pitch" default="0"/>
+	  <arg name="yaw" default="0"/>
+
+<group ns="$(arg follower_robot)">
+
+<param name="robot_description" command="$(find xacro)/xacro.py '$(find azcar_sim)/urdf/humancar.xacro' roboname:='$(arg follower_robot)'" />
+
+<include file="$(find azcar_sim)/launch/humancar.launch">
+    <arg name="robot_name" value="$(arg follower_robot)"/>
+    <arg name="init_pose" value="-x $(arg X) -y $(arg Y) -z $(arg Z) -R $(arg roll) -P $(arg pitch) -Y $(arg yaw)"/>
+    <arg name="config_file" value="azcar_control.yaml"/>
+</include>
+
+<node pkg="humancarfollowercontroller" type="humancarfollowercontroller_node" name="humancarfollowercontroller$(arg follower_robot)" output="screen"
+              required="true">
+
+<!--node pkg="humancarfollowercontroller_microscopic" type="humancarfollowercontroller_microscopic_node" name="humancarfollowercontroller_microscopic$(arg follower_robot)" output="screen"
+              required="true"-->
+
+    <remap from="/azcar_sim/vel" to="/$(arg leader_robot)/vel" />
+    <remap from="/follower_sim/vel" to="/$(arg follower_robot)/vel" />
+    <remap from="/azcar_sim/odom" to="/$(arg leader_robot)/odom" />
+    <remap from="/follower_sim/odom" to="/$(arg follower_robot)/odom" />
+    <remap from="/follower_sim/cmd_vel" to="/$(arg follower_robot)/cmd_vel" />
+    <remap from="/follower_sim/steering" to="/$(arg follower_robot)/steering" />
+
+</node>
+
+</group>
+</launch>

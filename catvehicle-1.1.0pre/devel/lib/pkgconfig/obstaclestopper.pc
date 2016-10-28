@@ -1,0 +1,8 @@
+prefix=/home/nolan/Documents/catVehicle/catvehicle-1.1.0pre/devel
+
+Name: obstaclestopper
+Description: Description of obstaclestopper
+Version: 1.0.0
+Cflags: 
+Libs: -L/home/nolan/Documents/catVehicle/catvehicle-1.1.0pre/devel/lib 
+Requires: geometry_msgs roscpp std_msgs

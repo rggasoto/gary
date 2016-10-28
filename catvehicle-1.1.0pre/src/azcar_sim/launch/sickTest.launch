@@ -1,0 +1,10 @@
+<launch>
+
+<include file="$(find azcar_sim)/launch/sick_laptop_500k.launch">
+</include>
+
+<include file="$(find azcar_sim)/launch/distanceEstimator_standalone.launch">
+</include>
+
+
+</launch>

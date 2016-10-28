@@ -1,0 +1,2 @@
+azcar_sim:cmdvel2gazebo:hoffmannfollower:obstaclestopper:safeopenloopcircle:simplestateflowmodel
+-DCATKIN_DEVEL_PREFIX=/home/nolan/Documents/catVehicle/catvehicle-1.1.0pre/devel -DCMAKE_INSTALL_PREFIX=/home/nolan/Documents/catVehicle/catvehicle-1.1.0pre/install -G Unix Makefiles

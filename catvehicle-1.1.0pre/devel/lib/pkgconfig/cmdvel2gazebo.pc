@@ -1,0 +1,8 @@
+prefix=/home/nolan/Documents/catVehicle/catvehicle-1.1.0pre/devel
+
+Name: cmdvel2gazebo
+Description: Description of cmdvel2gazebo
+Version: 1.0.0
+Cflags: 
+Libs: -L/home/nolan/Documents/catVehicle/catvehicle-1.1.0pre/devel/lib 
+Requires: geometry_msgs roscpp std_msgs
