@@ -12,7 +12,7 @@ carSize = scale(np.array([2,5])) # Car is 2x5 meters in average
 road = scipy.misc.imread("path2.png",flatten=True)
 road = (road > 0).astype(int)#treshold path
 
-start = state(2.5,3.75,pi/2,0)
+start = state(2.5,2.75,pi/2-pi/12,0)
 goal = state(92.5,93.5,pi,0)
 
 
@@ -74,7 +74,7 @@ finder = Astar(0.4,"euclidean",3,collisionCheck,5,radians(70),radians(35),4.5)
 path = finder.search(start,goal);
 
 for i in finder.c_visited:
-    draw.polygon(matrix2Tuples(getCarShape(i)),fill=(0,255,255,10),outline = (255,0,0,255))
+    draw.polygon(matrix2Tuples(getCarShape(i)),fill=(0,0,0,0),outline = (0,0,255,150))
 
 if path:
     rgb = np.zeros((4,len(path)),dtype = np.int)
@@ -83,11 +83,11 @@ if path:
     rgb[3,:] = np.ones((1,len(path)))*70
     # print rgb
     print path[0]
-    # for i in range(1,len(path)):
-        # print path[i]
-        # draw.line(scale(np.array([path[i-1].x,path[i-1].y,path[i].x,path[i].y])).tolist(),fill=(0,0,255))
-        # draw.polygon(matrix2Tuples(getCarShape(path[i-1])),fill=(rgb[0,i-1],rgb[1,i-1],rgb[2,i-1],rgb[3,i-1]))
-    # draw.polygon(matrix2Tuples(getCarShape(path[i])),fill=(rgb[0,i],rgb[1,i],rgb[2,i],255))
+    for i in range(1,len(path)):
+        print path[i]
+        draw.line(scale(np.array([path[i-1].x,path[i-1].y,path[i].x,path[i].y])).tolist(),fill=(0,0,255))
+        draw.polygon(matrix2Tuples(getCarShape(path[i-1])),fill=(rgb[0,i-1],rgb[1,i-1],rgb[2,i-1],rgb[3,i-1]))
+    draw.polygon(matrix2Tuples(getCarShape(path[i])),fill=(rgb[0,i],rgb[1,i],rgb[2,i],255))
 
 del draw
 

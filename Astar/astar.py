@@ -145,10 +145,6 @@ class Astar:
         dy = abs(self.destination.y - current.y)
         dt = abs(self.destination.theta - current.theta)
         d = sqrt(dx**2 +dy**2+ dt**2)
-        if d < 2*self.v*self.stepsize:
-            self.stepsize/=1.01
-        else:
-            self.stepsize*=1.001
         # print d
         return d < delta
     def search(self,current,destination):
