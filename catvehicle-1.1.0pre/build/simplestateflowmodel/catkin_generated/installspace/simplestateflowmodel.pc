@@ -1,8 +1,0 @@
-prefix=/home/nolan/Documents/catVehicle/catvehicle-1.1.0pre/install
-
-Name: simplestateflowmodel
-Description: Description of simplestateflowmodel
-Version: 1.0.0
-Cflags: 
-Libs: -L/home/nolan/Documents/catVehicle/catvehicle-1.1.0pre/install/lib 
-Requires: geometry_msgs roscpp std_msgs

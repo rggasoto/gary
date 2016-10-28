@@ -1,8 +1,0 @@
-prefix=/home/nolan/Documents/catVehicle/catvehicle-1.1.0pre/install
-
-Name: hoffmannfollower
-Description: Description of hoffmannfollower
-Version: 1.0.1
-Cflags: 
-Libs: -L/home/nolan/Documents/catVehicle/catvehicle-1.1.0pre/install/lib 
-Requires: geometry_msgs nav_msgs roscpp std_msgs visualization_msgs

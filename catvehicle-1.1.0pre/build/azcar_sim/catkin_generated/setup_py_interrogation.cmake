@@ -1,6 +1,0 @@
-set(azcar_sim_SETUP_PY_VERSION "0.0.0")
-set(azcar_sim_SETUP_PY_SCRIPTS "")
-set(azcar_sim_SETUP_PY_PACKAGES "azcar_sim")
-set(azcar_sim_SETUP_PY_PACKAGE_DIRS "scripts/azcar_sim")
-set(azcar_sim_SETUP_PY_MODULES "")
-set(azcar_sim_SETUP_PY_MODULE_DIRS "")
