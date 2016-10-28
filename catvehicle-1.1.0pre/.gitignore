@@ -1,0 +1,10 @@
+#always ignore build dir
+[bB]uild/
+#folowing files types
+*.sh
+*.cmake
+*.pc
+# specific python files
+__init__.py
+_setup_util.py
+*.bag
