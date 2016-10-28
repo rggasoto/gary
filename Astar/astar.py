@@ -139,16 +139,13 @@ class Astar:
         # return neighbors
 
     def checkClose(self,current):
-        delta = 0.1;
+        delta = 0.2*self.stepsize*self.v
+        # print delta;
         dx = abs(self.destination.x - current.x)
         dy = abs(self.destination.y - current.y)
         dt = abs(self.destination.theta - current.theta)
         d = sqrt(dx**2 +dy**2+ dt**2)
-        if d < 2*self.v*self.stepsize:
-            self.stepsize/=1.01
-        else:
-            self.stepsize*=1.001
-        print d
+        # print d
         return d < delta
     def search(self,current,destination):
         self.current = current
