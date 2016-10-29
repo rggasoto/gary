@@ -15,11 +15,18 @@ class state:
 
     def stateUpdate(self,v,t,L,dphi):
         # Equations of motion for the car
-        newx = self.x-v*cos(self.theta+pi/2)*t
-        newy = self.y-v*sin(self.theta+pi/2)*t
-        newtheta = self.theta + (-v/L)*tan(self.phi)*t
         newphi = self.phi+dphi
-        return state(newx,newy,newtheta,newphi)
+        newtheta = self.theta + (v/L)*tan(newphi)*t
+        newx = self.x+v*cos(newtheta-pi/2)*t
+        newy = self.y+v*sin(newtheta-pi/2)*t
+        # print self.phi,newphi
+        # print self.theta, newtheta
+        # print self.x,newx
+        # print self.y,newy
+        # raw_input()
+        s = state(newx,newy,newtheta,newphi)
+        s.parent = self
+        return s
     def getXYTheta(self):
         return tuple((self.x,self.y,self.theta))
 
@@ -54,7 +61,7 @@ class Astar:
         return abs(node.x-self.destination.x) + abs(node.y-self.destination.y) + abs(node.theta -self.destination.theta)
     def h_euclidean(self,node):
         '''Returns Euclidean distance from node to destination'''
-        return ((node.x-self.destination.x)**2.0 + (node.y-self.destination.y)**2.0 + ((node.theta -self.destination.theta))**2.0)**0.5
+        return ((node.x-self.destination.x)**2.0 + (node.y-self.destination.y)**2.0 + ((node.theta -self.destination.theta)*(self.v*self.stepsize))**2)**0.5
 
     def __init__(self,stepsize,heuristics,v, collisionCheck,maxBranch,steeringSpeed,steeringLimit,L):
         self.steeringLimit = steeringLimit
@@ -65,7 +72,7 @@ class Astar:
         self.stepsize = stepsize
         self.maxSteering = min(float(steeringSpeed)/stepsize,steeringLimit);
         self.steeringStep = float(self.maxSteering*2)/(self.maxBranch-1)
-
+        self.originalStepSize = self.stepsize;
         self.baseSteeringSteps = np.zeros(self.maxBranch)
         for i in range(self.maxBranch):
             self.baseSteeringSteps[i]=self.steeringStep*i
@@ -97,12 +104,12 @@ class Astar:
     def neighbors(self,parent):
         neighbors = []
         for i in range(self.baseSteeringSteps.size):
-            if abs(parent.phi + self.baseSteeringSteps[i]) < self.steeringLimit:
+            if abs(parent.phi + self.baseSteeringSteps[i]) <= self.steeringLimit:
                 neighborCandidate = parent.stateUpdate(self.v,self.stepsize,self.L,self.baseSteeringSteps[i])
                 if neighborCandidate not in self.c_visited:
                     self.c_visited.append(neighborCandidate)
                     if not self.collisionCheck(neighborCandidate):
-                        cost = self.v*self.stepsize
+                        cost = self.v*self.stepsize #+ abs(parent.theta - neighborCandidate.theta)/pi
                         neighbors.append((neighborCandidate,cost))
         return neighbors
 
@@ -139,15 +146,21 @@ class Astar:
         # return neighbors
 
     def checkClose(self,current):
-        delta = 0.2*self.stepsize*self.v
+        delta = 0.2*self.originalStepSize*self.v
         # print delta;
         dx = abs(self.destination.x - current.x)
         dy = abs(self.destination.y - current.y)
         dt = abs(self.destination.theta - current.theta)
         d = sqrt(dx**2 +dy**2+ dt**2)
-        # print d
+        if 15*d < self.originalStepSize*self.v:
+            self.stepsize= self.originalStepSize*0.01
+        if d < self.mind:
+            self.mind = d
+        print d,self.mind,delta
+
         return d < delta
     def search(self,current,destination):
+        self.mind = float("inf")
         self.current = current
         self.destination = destination
         self.frontier = Queue.PriorityQueue()
@@ -186,7 +199,7 @@ class Astar:
                 nextcost = self.cost[current] + cost
                 if nextmove not in self.cost or nextcost < self.cost[nextmove]:
                     self.cost[nextmove] = nextcost
-                    priority = nextcost*0.2 + 0.8*self.h(nextmove)
+                    priority = nextcost*0.8 + 1.2*self.h(nextmove)
                     self.frontier.put((priority,nextmove))
                     self.came_from[nextmove] = current
                 #raw_input("Press enter to continue...")

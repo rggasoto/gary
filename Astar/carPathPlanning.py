@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.linalg
 import scipy.misc
 from astar import *
 from PIL import Image, ImageDraw
@@ -7,12 +8,12 @@ from math import *
 
 def scale(xy):
     return xy*20 #each pixel is 1/4 of a meter
-
+imgpath = "path.png"
 carSize = scale(np.array([2,5])) # Car is 2x5 meters in average
-road = scipy.misc.imread("path2.png",flatten=True)
-road = (road > 0).astype(int)#treshold path
+road = scipy.misc.imread(imgpath,flatten=True)
+road = (road == 0).astype(int)#treshold path
 
-start = state(2.5,2.75,pi/2-pi/12,0)
+start = state(2.5,3.75,pi/2,0)
 goal = state(92.5,93.5,pi,0)
 
 
@@ -52,7 +53,7 @@ def matrix2Tuples(matrix):
 def collisionCheck(state):
     carShape = getCarShape(state)
     for i in range(carShape.shape[1]):
-        # print carShape[1,i],carShape[0,i],
+        #print carShape[1,i],carShape[0,i]
         if int(carShape[1,i]) >= road.shape[1] or int(carShape[0,i]) >= road.shape[0]:
             return True
 
@@ -61,26 +62,26 @@ def collisionCheck(state):
     return False
 
 #Get road that was generated
-im = Image.open("path.png").convert('RGB')
+im = Image.open(imgpath).convert('RGB')
 draw = ImageDraw.Draw(im,'RGBA')
 TP = tuple(scale(np.array(([goal.x,goal.y]))))
 # draw.point(TP,fill =(255,0,0))
-draw.polygon(matrix2Tuples(getCarShape(start)),fill=(255,0,0))
 print collisionCheck(goal)
 print collisionCheck(start)
 
 # stepsize,heuristics,v, collisionCheck,maxBranch,steeringSpeed,steeringLimit,L)
-finder = Astar(0.4,"euclidean",3,collisionCheck,5,radians(70),radians(35),4.5)
+finder = Astar(.5,"euclidean",5,collisionCheck,5,radians(70),radians(35),4.5)
 path = finder.search(start,goal);
 
 for i in finder.c_visited:
-    draw.polygon(matrix2Tuples(getCarShape(i)),fill=(0,0,0,0),outline = (0,0,255,150))
+    draw.polygon(matrix2Tuples(getCarShape(i)),fill=(0,255,255,30),outline = (255,0,0,150))
+draw.polygon(matrix2Tuples(getCarShape(start)),fill=(255,0,0))
 
 if path:
     rgb = np.zeros((4,len(path)),dtype = np.int)
     rgb[0,:] = np.linspace(255,0,num=len(path))
     rgb[1,:] = np.linspace(0,255,num=len(path))
-    rgb[3,:] = np.ones((1,len(path)))*70
+    rgb[3,:] = np.ones((1,len(path)))*255
     # print rgb
     print path[0]
     for i in range(1,len(path)):
@@ -91,4 +92,4 @@ if path:
 
 del draw
 
-im.save("draw.png","PNG")
+im.save("draw3.png","PNG")
