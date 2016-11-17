@@ -135,6 +135,7 @@ class cmdvel2gazebo:
             msgRear = Float64()
             msgRear.data = self.x;
             self.pub_rearL.publish(msgRear)
+            msgRear.data = -self.x;
             self.pub_rearR.publish(msgRear)
 
             msgSteer = Float64()
