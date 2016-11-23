@@ -1,0 +1,14 @@
+README
+
+Commands To run (each in a tab):
+
+* roscore
+
+* rosrun rviz rviz -d <yourGitRepo>/catVehie/catvehicle-1.1.0pre/src/rbe502code/rbe502.rviz
+
+* rosrun map_server map_server <yourGitRepo>/catVehicle/catvehicle-1.1.0pre/src/rbe502code/maps/maze.yaml
+
+* python <yourGitRepo>/catVehicle/catvehicle-1.1.0pre/src/rbe502code/scripts/carPathPlanning.py
+
+Currently, you can use the "2Dpose Estimate" and the "nav to goal" buttons in rviz to send commands to the pathPlanner.py
+I'd suggest using 'print' statements liberally to figure out what's going on.
