@@ -8,7 +8,7 @@ from math import *
 
 def scale(xy):
     return xy*20 #each pixel is 1/4 of a meter
-imgpath = "path3.png"
+imgpath = "path2.png"
 carSize = scale(np.array([2,5])) # Car is 2x5 meters in average
 road = scipy.misc.imread(imgpath,flatten=True)
 road = (road == 0).astype(int)#treshold path
@@ -16,7 +16,7 @@ road = (road == 0).astype(int)#treshold path
 # start = state(92.5,3.75,-pi/2,0,1)
 # goal = state(92.5,3.75,-pi,0,1)
 start = state(2.5,16.75,pi/2,0)
-# goal = state(5.5,20.75,-pi/2,0)
+#goal = state(5.5,20.75,-pi/2,0)
 goal = state(90.5,91,pi,0)
 #
 
@@ -73,26 +73,13 @@ print collisionCheck(goal)
 print collisionCheck(start)
 
 # stepsize,heuristics,v, collisionCheck,maxBranch,steeringSpeed,steeringLimit,L)
-finder = Astar(.25,"dubin",6,collisionCheck,7,radians(100),radians(35),4.5)
+finder = Astar(.25,"euclidean",6,collisionCheck,5,radians(100),radians(35),4.5)
 path = finder.search(start,goal);
 
 for i in finder.c_visited:
-    draw.ellipse([scale(i.x)-10,scale(i.y)-10,scale(i.x)+10,scale(i.y)+10],fill=(0,255,0,100))
-    draw.polygon(matrix2Tuples(getCarShape(i)),fill=(0,255,255,30),outline = (255,0,0,150))
+    draw.ellipse([scale(i.x)-5,scale(i.y)-5,scale(i.x)+5,scale(i.y)+5],fill=(0,255,0,100))
+    draw.polygon(matrix2Tuples(getCarShape(i)),fill=(0,255,255,0),outline = (255,0,0,150))
 draw.polygon(matrix2Tuples(getCarShape(start)),fill=(255,0,0))
-q0 = (start.x,start.y,start.theta-pi/2)
-q1 = (goal.x,goal.y,goal.theta-pi/2)
-
-Path,_ = dubins.path_sample(q0,q1,4.5/tan(radians(30)),0.5)
-p = scale(np.matrix(Path))
-print p
-xy = p[:,0:1]
-plotxy = []
-for i in range(len(xy)):
-    plotxy.append((p[i,0],p[i,1]))
-print plotxy
-draw.line(plotxy,fill=(255,0,0,255),width=1)
-draw.point(plotxy[0],fill=(0,255,0,255))
 if path:
     rgb = np.zeros((4,len(path)),dtype = np.int)
     rgb[0,:] = np.linspace(255,0,num=len(path))
@@ -105,8 +92,34 @@ if path:
         draw.line(scale(np.array([path[i-1].x,path[i-1].y,path[i].x,path[i].y])).tolist(),fill=(0,0,255))
         draw.polygon(matrix2Tuples(getCarShape(path[i-1])),fill=(rgb[0,i-1],rgb[1,i-1],rgb[2,i-1],rgb[3,i-1]))
     draw.polygon(matrix2Tuples(getCarShape(path[i])),fill=(rgb[0,i],rgb[1,i],rgb[2,i],255))
+q0 = (start.x,start.y,start.theta-pi/2)
+q1 = (goal.x,goal.y,goal.theta-pi/2)
 
+q0 = (start.x,start.y,start.theta-pi/2)
+Path,_ = dubins.path_sample(q0,q1,4.5/tan(radians(30)),0.5)
+p = scale(np.matrix(Path))
+print p
+xy = p[:,0:1]
+plotxy = []
+for i in range(len(xy)):
+    plotxy.append((p[i,0],p[i,1]))
+print plotxy
+draw.line(plotxy,fill=(255,255,255,255),width=3)
+draw.point(plotxy[0],fill=(0,255,0,255))
+
+q0 = (finder.closest.x,finder.closest.y,finder.closest.theta-pi/2)
+draw.ellipse([scale(q0[0])-5,scale(q0[1])-5,scale(q0[0])+5,scale(q0[1])+5],fill=(0,255,0,100))
+Path,_ = dubins.path_sample(q0,q1,4.5/tan(radians(30)),0.5)
+p = scale(np.matrix(Path))
+print p
+xy = p[:,0:1]
+plotxy = []
+for i in range(len(xy)):
+    plotxy.append((p[i,0],p[i,1]))
+print plotxy
+draw.line(plotxy,fill=(255,0,0,255),width=2)
+draw.point(plotxy[0],fill=(0,255,0,255))
 draw.polygon(matrix2Tuples(getCarShape(goal)),fill=(0,0,255,60))
 del draw
 
-im.save("draw3.png","PNG")
+im.save("draw5.png","PNG")

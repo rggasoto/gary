@@ -4,7 +4,20 @@ import Queue
 from math import *
 import sys, select, os
 import dubins
+from exceptions import KeyboardInterrupt
+import signal
+import sys
+import thread
 
+def input_thread(list):
+    raw_input()
+    list.append(None)
+
+def do_stuff():
+    list = []
+    thread.start_new_thread(input_thread, (list,))
+    while not list:
+        print "a"
 class state:
     def __init__(self,x,y,theta,phi):
         self.x = x;
@@ -18,8 +31,8 @@ class state:
         # Equations of motion for the car
         newphi = self.phi+dphi
         newtheta = self.theta + (v/L)*tan(newphi)*t
-        newx = self.x+v*cos(newtheta-pi/2)*t
-        newy = self.y+v*sin(newtheta-pi/2)*t
+        newx = self.x+v*sin(self.theta)*t
+        newy = self.y-v*cos(self.theta)*t
         # print self.phi,newphi
         # print self.theta, newtheta
         # print self.x,newx
@@ -91,7 +104,7 @@ class Astar:
         print self.L, self.steeringLimit
         self.min_turning_radius = (self.L)/tan(radians(30))
         print self.min_turning_radius
-        raw_input()
+        #raw_input()
         #Pointer to the function collisionCheck that will be used
         self.collisionCheck = collisionCheck
         #print self.collisionCheck
@@ -155,16 +168,20 @@ class Astar:
         # return neighbors
 
     def checkClose(self,current):
-        delta = 1.7#0.2*self.originalStepSize*self.v
+        delta = 2#0.2*self.originalStepSize*self.v
         # print delta;
-        dx = abs(self.destination.x - current.x)
-        dy = abs(self.destination.y - current.y)
-        dt = abs(self.destination.theta - current.theta)
-        d = sqrt(dx**2 +dy**2+ dt**2)
-        # if 15*d < self.originalStepSize*self.v:
-        #     self.stepsize= self.originalStepSize*0.01
+        #dx = abs(self.destination.x - current.x)
+        #dy = abs(self.destination.y - current.y)
+        #dt = abs(self.destination.theta - current.theta)
+        #d = sqrt(dx**2 +dy**2+ dt**2)
+        d = self.h_dubins(current)
+        if 5*d < self.originalStepSize*self.v:
+           self.stepsize= self.originalStepSize*0.01
+        else:
+           self.stepsize = self.originalStepSize
         if d < self.mind:
             self.mind = d
+            self.closest = current
         print d,self.mind,delta
 
         return d < delta
@@ -182,9 +199,10 @@ class Astar:
         self.f_visited = []
         self.c_visited = []
         total = 0
-        while not self.frontier.empty():
-            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-                return False
+        list = []
+        thread.start_new_thread(input_thread, (list,))
+        
+        while not list and not self.frontier.empty():                
             total +=1
 
             #print self.frontier
@@ -195,7 +213,9 @@ class Astar:
             #print current
             if self.checkClose(current):
                 #Withing the acceptance limit, it's close enough to say it's the desired goal
-                self.destination = current
+                #self.destination = current
+                self.came_from[self.destination] = self.came_from[current]
+                current = destination
                 #print 'got it', self.getPath()
                 #print total
                 return self.getPath()#,self.f_visited,self.c_visited
@@ -211,8 +231,7 @@ class Astar:
                     priority = nextcost*.8 + 1.2*self.h(nextmove)
                     self.frontier.put((priority,nextmove))
                     self.came_from[nextmove] = current
-                #raw_input("Press enter to continue...")
-
+                #raw_input("Press enter to continue...")      
         #print 'ops',self.current, self.destination
         return False
 
