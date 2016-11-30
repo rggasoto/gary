@@ -3,6 +3,7 @@ import Queue
 #import utils
 from math import *
 import sys, select, os
+import dubins
 
 class state:
     def __init__(self,x,y,theta,phi):
@@ -52,7 +53,10 @@ class Astar:
     #connect8 = [(-1,0,0),(-1,1,0),(0,1,0),(1,1,0),(1,0,0),(1,-1,0),(0,-1,0),(-1,-1,0),(0,0,1),(0,0,-1)]
     connect4 = [(-1,0,0),(0,1,0),(1,0,0),(0,-1,0),(0,0,1),(0,0,-1)]
 
-
+    def h_dubins(self,node):
+        q0 = (node.x,node.y,node.theta-pi/2)
+        q1 = (self.destination.x,self.destination.y,self.destination.theta-pi/2);
+        return dubins.path_length(q0,q1,self.min_turning_radius)
     def h_manhattan(self,node):
         '''Returns manhattan distance from node to destination'''
         #print node
@@ -84,7 +88,10 @@ class Astar:
         self.L = L
 
         #destination[2] = destination[2]%(2*math.pi)
-
+        print self.L, self.steeringLimit
+        self.min_turning_radius = (self.L)/tan(radians(30))
+        print self.min_turning_radius
+        raw_input()
         #Pointer to the function collisionCheck that will be used
         self.collisionCheck = collisionCheck
         #print self.collisionCheck
@@ -97,6 +104,8 @@ class Astar:
             self.h = self.h_manhattan
         elif heuristics == "euclidean":
             self.h = self.h_euclidean
+        elif heuristics == "dubin":
+            self.h = self.h_dubins
         # self.draw = draw
 
     # def neighbors(self,parent):
@@ -146,14 +155,14 @@ class Astar:
         # return neighbors
 
     def checkClose(self,current):
-        delta = 0.2*self.originalStepSize*self.v
+        delta = 1.7#0.2*self.originalStepSize*self.v
         # print delta;
         dx = abs(self.destination.x - current.x)
         dy = abs(self.destination.y - current.y)
         dt = abs(self.destination.theta - current.theta)
         d = sqrt(dx**2 +dy**2+ dt**2)
-        if 15*d < self.originalStepSize*self.v:
-            self.stepsize= self.originalStepSize*0.01
+        # if 15*d < self.originalStepSize*self.v:
+        #     self.stepsize= self.originalStepSize*0.01
         if d < self.mind:
             self.mind = d
         print d,self.mind,delta
@@ -199,7 +208,7 @@ class Astar:
                 nextcost = self.cost[current] + cost
                 if nextmove not in self.cost or nextcost < self.cost[nextmove]:
                     self.cost[nextmove] = nextcost
-                    priority = nextcost*0.8 + 1.2*self.h(nextmove)
+                    priority = nextcost*.8 + 1.2*self.h(nextmove)
                     self.frontier.put((priority,nextmove))
                     self.came_from[nextmove] = current
                 #raw_input("Press enter to continue...")
