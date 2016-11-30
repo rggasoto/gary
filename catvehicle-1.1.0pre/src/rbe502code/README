@@ -4,7 +4,7 @@ Commands To run (each in a tab):
 
 * roscore
 
-* rosrun rviz rviz -d <yourGitRepo>/catVehie/catvehicle-1.1.0pre/src/rbe502code/rbe502.rviz
+* rosrun rviz rviz -d <yourGitRepo>/catVehicle/catvehicle-1.1.0pre/src/rbe502code/rbe502.rviz
 
 * rosrun map_server map_server <yourGitRepo>/catVehicle/catvehicle-1.1.0pre/src/rbe502code/maps/maze.yaml
 

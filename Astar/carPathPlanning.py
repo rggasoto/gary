@@ -8,13 +8,13 @@ from math import *
 
 def scale(xy):
     return xy*20 #each pixel is 1/4 of a meter
-imgpath = "path.png"
+imgpath = "path2.png"
 carSize = scale(np.array([2,5])) # Car is 2x5 meters in average
 road = scipy.misc.imread(imgpath,flatten=True)
 road = (road == 0).astype(int)#treshold path
 
 start = state(2.5,3.75,pi/2,0)
-goal = state(92.5,93.5,pi,0)
+goal = state(92.5,8.75,pi,0)
 
 
 def getCarShape(carPos):
