@@ -21,7 +21,9 @@ from geometry_msgs.msg import PoseStamped
 #define car transform
 
 def scale(xy):
-    return xy #each pixle is a meter?
+    global mapResolution
+    #meters to pixels
+    return xy/mapResolution
 
 def getCarShape(carPos):
     global carSize
@@ -48,8 +50,23 @@ def rotate(points,theta):
     #     print [points[0,i],rPoints[0,i]]
     #     print [points[1,i],rPoints[1,i]]
     #     print '\n'
-
     return rPoints
+
+def mapToImage(points):
+    global mapResolution
+    # Note: this only works with rectangular images!
+    #rotate 180 about x axis
+    # then shift by offset from road shape information
+    roadShape = road.shape
+    #extract
+    delY = roadShape[1]*mapResolution
+    print delY
+    R = np.matrix([[1,0,0,0],[0, -1, 0,delY],[0, 0, -1,0],[0,0,0,1]]);
+    rPoints = R*points
+    return rPoints
+
+
+
 def matrix2Tuples(matrix):
     tuples = []
     for i in range(matrix.shape[1]):
@@ -60,7 +77,7 @@ def collisionCheck(state):
     global road
     carShape = getCarShape(state)
     for i in range(carShape.shape[1]):
-        #print carShape[1,i],carShape[0,i]
+        print carShape[1,i],carShape[0,i]
         if int(carShape[1,i]) >= road.shape[1] or int(carShape[0,i]) >= road.shape[0]:
             return True
 
@@ -76,7 +93,9 @@ def readGoal(goalPos):
     quat = goalPos.pose.orientation
     q = [quat.x, quat.y, quat.z, quat.w]
     roll, pitch, yaw = euler_from_quaternion(q)
-    goal = state(x,y,yaw,0)
+    points = np.matrix([x,y,0,1])
+    goalCoord = mapToImage(points.transpose())
+    goal = state(goalCoord.item(0),goalCoord.item(1),-yaw+pi/2,0)
     print goal.x
     print goal.y
     print goal.theta
@@ -90,30 +109,40 @@ def readStart(startPos):
     quat = startPos.pose.pose.orientation
     q = [quat.x, quat.y, quat.z, quat.w]
     roll, pitch, yaw = euler_from_quaternion(q)
-    start = state(x,y,yaw,0)
+    points = np.matrix([x,y,0,1])
+    startCoord = mapToImage(points.transpose())
+    start = state(startCoord.item(0),startCoord.item(1),-yaw+pi/2,0)
+    #start = state(startCoord)
     print start.x
-    print start.y 
+    print start.y
     print start.theta
     print start.phi
 
 def mapCallBack(map):
     pass
 
+def mapMetaCallback(metaData):
+    global mapResolution, road, imgpath
+    mapResolution = metaData.resolution
+    print "map resolution is ", mapResolution, "m/pix"
+    # retrieve current working directory
+    currDir = os.path.dirname(os.path.realpath(__file__))
+    parDir = os.path.abspath(os.path.join(currDir, os.pardir))
+    imgpath = parDir + "/maps/shapes.pgm"
+    road = scipy.misc.imread(imgpath, flatten=True)
+    print "road size is : ", road.size, " and shape is", road.shape
+    road = (road == 0).astype(int)  # threshold path
+    rospy.sleep(5)
+
 def planPath():
-    global carSize, road
-    currPath = os.path.dirname(os.path.realpath(__file__))
-    parPath = os.path.abspath(os.path.join(currPath, os.pardir))
-    imgpath = parPath+"/maps/maze.pgm"
-
-
-    carSize = scale(np.array([2,5])) # Car is 2x5 meters in average
-    road = scipy.misc.imread(imgpath,flatten=True)
-    road = (road == 0).astype(int)#treshold path
+    global carSize, road,impath
+    carSize = scale(np.array([2, 5]))  # Car is 2x5 meters in average
     #Get road that was generated
     im = Image.open(imgpath).convert('RGB')
     draw = ImageDraw.Draw(im,'RGBA')
     TP = tuple(scale(np.array(([goal.x,goal.y]))))
     # draw.point(TP,fill =(255,0,0))
+
     print collisionCheck(goal)
     print collisionCheck(start)
 
@@ -126,6 +155,7 @@ def planPath():
     draw.polygon(matrix2Tuples(getCarShape(start)),fill=(255,0,0))
 
     if path:
+        print "path data type is: ", type(path)
         rgb = np.zeros((4,len(path)),dtype = np.int)
         rgb[0,:] = np.linspace(255,0,num=len(path))
         rgb[1,:] = np.linspace(0,255,num=len(path))
@@ -145,13 +175,15 @@ def planPath():
 def run():
     global pub
     global carSize, road
-    global start, goal
+    global start, goal,mapResolution,impath
     start = None
     goal = None
 
     rospy.init_node('carPathPlanning')
+
+    sub = rospy.Subscriber("/map_metadata", MapMetaData, mapMetaCallback)
     sub = rospy.Subscriber("/map", OccupancyGrid, mapCallBack)
-    pub = rospy.Publisher("/map_check", GridCells, queue_size=1)  
+    pub = rospy.Publisher("/map_check", GridCells, queue_size=1)
     pubpath = rospy.Publisher("/path", GridCells, queue_size=1) # you can use other types if desired
     pubway = rospy.Publisher("/waypoints", GridCells, queue_size=1)
     goal_sub = rospy.Subscriber('move_base_simple/goal', PoseStamped, readGoal, queue_size=1) #change topic for best results
@@ -163,12 +195,13 @@ def run():
     while (1 and not rospy.is_shutdown()):
         #publishCells(mapData) #publishing map data every 2 seconds
         print("waiting")
-        rospy.sleep(1) 
+        rospy.sleep(1)
         if start != None and goal != None:
+            pass
             planPath()
-            print("Complete") 
+            print("Complete")
             return
-    
+
 
 
 if __name__ == '__main__':
