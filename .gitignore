@@ -1,12 +1,16 @@
 #always ignore build dir
 [bB]uild/
+
 #folowing files types
 *.sh
 *.cmake
 *.pc
+*.catkin
+*.rosinstall
 # specific python files
 __init__.py
 _setup_util.py
+#bag files are too large to go onto regular github (above 100MB)
 *.bag
 /catvehicle-1.1.0pre/src/rbe502code/scripts/scripts.sln
 /catvehicle-1.1.0pre/src/rbe502code/scripts/scripts.pyproj
