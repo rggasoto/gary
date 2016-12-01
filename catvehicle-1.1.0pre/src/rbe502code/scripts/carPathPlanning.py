@@ -13,13 +13,37 @@ from tf.transformations import euler_from_quaternion
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import MapMetaData
 from nav_msgs.msg import GridCells
+from nav_msgs.msg import Pose
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Point
 from std_msgs.msg import Float64
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from geometry_msgs.msg import PoseStamped
+import tf.transformations
 #define car transform
 
+def getPose(point):
+    pose = geometry_msgs.msg.Pose()
+    pose.position.x = point.x
+    pose.position.y = point.y
+    pose.position.z = point.phi
+    rot = quaternion_from_euler(0, 0, point.theta)
+    pose.orientation.x = rot[0]
+    pose.orientation.y = rot[1]
+    pose.orientation.z = rot[2]
+    pose.orientation.w = rot[3]
+    return pose
+
+def getStampedPose(point,frame_id):
+    pose_stamped = geometry_msgs.msg.PoseStamped()
+    pose_stamped.header.frame_id = frame_id
+    pose_stamped.pose = getPose(point)
+    return pose_stamped
+def getROSPath(path):
+    ROSPath = nav_msgs.Path()
+    for i in path:
+        ROSPath.poses.append(getStampedPose(i,frame_id))
+    return ROSPath
 def scale(xy):
     return xy #each pixle is a meter?
 
