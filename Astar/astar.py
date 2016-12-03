@@ -76,9 +76,9 @@ class Astar:
         self.baseSteeringSteps = np.zeros(self.maxBranch)
         for i in range(self.maxBranch):
             self.baseSteeringSteps[i]=self.steeringStep*i
-        print self.baseSteeringSteps
+        #print self.baseSteeringSteps
         self.baseSteeringSteps-=self.maxSteering
-        print self.baseSteeringSteps
+        #print self.baseSteeringSteps
         self.v = v #car speed
         self.steeringLimit = steeringLimit
         self.L = L
@@ -156,7 +156,7 @@ class Astar:
             self.stepsize= self.originalStepSize*0.01
         if d < self.mind:
             self.mind = d
-        print d,self.mind,delta
+        #print d,self.mind,delta
 
         return d < delta
     def search(self,current,destination):
@@ -174,8 +174,8 @@ class Astar:
         self.c_visited = []
         total = 0
         while not self.frontier.empty():
-            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-                return False
+            #if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+            #    return False
             total +=1
 
             #print self.frontier
