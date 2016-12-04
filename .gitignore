@@ -7,11 +7,13 @@
 *.pc
 *.catkin
 *.rosinstall
+*.pyc
 # specific python files
 __init__.py
 _setup_util.py
 #bag files are too large to go onto regular github (above 100MB)
 *.bag
+.idea/
 /catvehicle-1.1.0pre/src/rbe502code/scripts/scripts.sln
 /catvehicle-1.1.0pre/src/rbe502code/scripts/scripts.pyproj
 /catvehicle-1.1.0pre/src/rbe502code/scripts/draw6.png
