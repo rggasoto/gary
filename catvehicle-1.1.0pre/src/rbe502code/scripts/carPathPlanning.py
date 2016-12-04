@@ -13,13 +13,37 @@ from tf.transformations import euler_from_quaternion
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import MapMetaData
 from nav_msgs.msg import GridCells
+from nav_msgs.msg import Pose
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Point
 from std_msgs.msg import Float64
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from geometry_msgs.msg import PoseStamped
+import tf.transformations
 #define car transform
 
+def getPose(point):
+    pose = geometry_msgs.msg.Pose()
+    pose.position.x = point.x
+    pose.position.y = point.y
+    pose.position.z = point.phi
+    rot = quaternion_from_euler(0, 0, point.theta)
+    pose.orientation.x = rot[0]
+    pose.orientation.y = rot[1]
+    pose.orientation.z = rot[2]
+    pose.orientation.w = rot[3]
+    return pose
+
+def getStampedPose(point,frame_id):
+    pose_stamped = geometry_msgs.msg.PoseStamped()
+    pose_stamped.header.frame_id = frame_id
+    pose_stamped.pose = getPose(point)
+    return pose_stamped
+def getROSPath(path,frame_id):
+    ROSPath = nav_msgs.Path()
+    for i in path:
+        ROSPath.poses.append(getStampedPose(i,frame_id))
+    return ROSPath
 def scale(xy):
     global mapResolution
     #meters to pixels
@@ -138,18 +162,25 @@ def planPath():
     global carSize, road,impath
     carSize = scale(np.array([2, 5]))  # Car is 2x5 meters in average
     #Get road that was generated
-    im = Image.open(imgpath).convert('RGB')
-    draw = ImageDraw.Draw(im,'RGBA')
     TP = tuple(scale(np.array(([goal.x,goal.y]))))
     # draw.point(TP,fill =(255,0,0))
 
-    print collisionCheck(goal)
-    print collisionCheck(start)
-
+    #print collisionCheck(goal)
+    #print collisionCheck(start)
+    
     # stepsize,heuristics,v, collisionCheck,maxBranch,steeringSpeed,steeringLimit,L)
     finder = Astar(.5,"euclidean",5,collisionCheck,5,radians(70),radians(35),4.5)
-    path = finder.search(start,goal);
+    if not (collisionCheck(goal) and collisionCheck(start)):
+        path = finder.search(start,goal);    
+        #drawpawh(draw,finder,path,im)
+        if path:
+            return getROSPath(path,'map')
+  
 
+def drawPath(finder,path):
+    im = Image.open(imgpath).convert('RGB')
+    draw = ImageDraw.Draw(im,'RGBA')
+    
     for i in finder.c_visited:
         draw.polygon(matrix2Tuples(getCarShape(i)),fill=(0,255,255,30),outline = (255,0,0,150))
     draw.polygon(matrix2Tuples(getCarShape(start)),fill=(255,0,0))

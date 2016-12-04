@@ -10,6 +10,12 @@
 # specific python files
 __init__.py
 _setup_util.py
-
 #bag files are too large to go onto regular github (above 100MB)
 *.bag
+/catvehicle-1.1.0pre/src/rbe502code/scripts/scripts.sln
+/catvehicle-1.1.0pre/src/rbe502code/scripts/scripts.pyproj
+/catvehicle-1.1.0pre/src/rbe502code/scripts/draw6.png
+/catvehicle-1.1.0pre/src/rbe502code/scripts/draw5.png
+/catvehicle-1.1.0pre/src/rbe502code/scripts/draw5 - Dubin.png
+/catvehicle-1.1.0pre/src/rbe502code/scripts/draw4.png
+/catvehicle-1.1.0pre/src/rbe502code/scripts/.vs/scripts/v14/.suo
