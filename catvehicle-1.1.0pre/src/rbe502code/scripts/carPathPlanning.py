@@ -8,22 +8,26 @@ from PIL import Image, ImageDraw
 from math import *
 import rospy
 import math
-from tf.transformations import euler_from_quaternion
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
+import tf2_ros
+import std_msgs.msg
 
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import MapMetaData
 from nav_msgs.msg import GridCells
-from nav_msgs.msg import Pose
+from nav_msgs.msg import Path
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Point
 from std_msgs.msg import Float64
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import Pose
+
 import tf.transformations
 #define car transform
 
 def getPose(point):
-    pose = geometry_msgs.msg.Pose()
+    pose = Pose()
     pose.position.x = point.x
     pose.position.y = point.y
     pose.position.z = point.phi
@@ -35,12 +39,15 @@ def getPose(point):
     return pose
 
 def getStampedPose(point,frame_id):
-    pose_stamped = geometry_msgs.msg.PoseStamped()
+    pose_stamped = PoseStamped()
+    pose_stamped.header.stamp = rospy.Time.now()
     pose_stamped.header.frame_id = frame_id
     pose_stamped.pose = getPose(point)
     return pose_stamped
 def getROSPath(path,frame_id):
-    ROSPath = nav_msgs.Path()
+    ROSPath = Path()
+    ROSPath.header.frame_id = frame_id
+    ROSPath.header.stamp = rospy.Time.now()
     for i in path:
         ROSPath.poses.append(getStampedPose(i,frame_id))
     return ROSPath
@@ -73,7 +80,7 @@ def rotate(points,theta):
     #     rPoints[1,i] = (s * (points[0,i]) + c * (points[1,i]))
     #     print [points[0,i],rPoints[0,i]]
     #     print [points[1,i],rPoints[1,i]]
-    #     print '\n'
+    #     print '\n'import tf2_ros
     return rPoints
 
 def mapToImage(points):
@@ -142,9 +149,6 @@ def readStart(startPos):
     print start.theta
     print start.phi
 
-def mapCallBack(map):
-    pass
-
 def mapMetaCallback(metaData):
     global mapResolution, road, imgpath
     mapResolution = metaData.resolution
@@ -159,34 +163,35 @@ def mapMetaCallback(metaData):
     rospy.sleep(5)
 
 def planPath():
-    global carSize, road,impath
+    global carSize,imgpath, pathPub
     carSize = scale(np.array([2, 5]))  # Car is 2x5 meters in average
     #Get road that was generated
     TP = tuple(scale(np.array(([goal.x,goal.y]))))
-    # draw.point(TP,fill =(255,0,0))
+    #draw.point(TP,fill =(255,0,0))
 
     #print collisionCheck(goal)
     #print collisionCheck(start)
     
     # stepsize,heuristics,v, collisionCheck,maxBranch,steeringSpeed,steeringLimit,L)
-    finder = Astar(.5,"euclidean",5,collisionCheck,5,radians(70),radians(35),4.5)
+    finder = Astar(.5,"dubins",5,collisionCheck,5,radians(70),radians(35),4.5)
     if not (collisionCheck(goal) and collisionCheck(start)):
-        path = finder.search(start,goal);    
-        #drawpawh(draw,finder,path,im)
+        path = finder.search(start,goal);
+        drawPath(finder,path)
         if path:
-            return getROSPath(path,'map')
-  
+            return getROSPath(path,"/map")
+
+def pubCarPath(path):
+    print("Publishing Path")
+    pathPub.publish(path)
 
 def drawPath(finder,path):
     im = Image.open(imgpath).convert('RGB')
     draw = ImageDraw.Draw(im,'RGBA')
-    
     for i in finder.c_visited:
         draw.polygon(matrix2Tuples(getCarShape(i)),fill=(0,255,255,30),outline = (255,0,0,150))
     draw.polygon(matrix2Tuples(getCarShape(start)),fill=(255,0,0))
 
     if path:
-        print "path data type is: ", type(path)
         rgb = np.zeros((4,len(path)),dtype = np.int)
         rgb[0,:] = np.linspace(255,0,num=len(path))
         rgb[1,:] = np.linspace(0,255,num=len(path))
@@ -202,36 +207,40 @@ def drawPath(finder,path):
     del draw
     im.save("draw3.png","PNG")
 
+
 #Main handler of the project
 def run():
-    global pub
+    global pathPub
     global carSize, road
     global start, goal,mapResolution,impath
     start = None
     goal = None
+    carPath = None
 
     rospy.init_node('carPathPlanning')
 
-    sub = rospy.Subscriber("/map_metadata", MapMetaData, mapMetaCallback)
-    sub = rospy.Subscriber("/map", OccupancyGrid, mapCallBack)
-    pub = rospy.Publisher("/map_check", GridCells, queue_size=1)
-    pubpath = rospy.Publisher("/path", GridCells, queue_size=1) # you can use other types if desired
-    pubway = rospy.Publisher("/waypoints", GridCells, queue_size=1)
-    goal_sub = rospy.Subscriber('move_base_simple/goal', PoseStamped, readGoal, queue_size=1) #change topic for best results
-    goal_sub = rospy.Subscriber('initialpose', PoseWithCovarianceStamped, readStart, queue_size=1) #change topic for best results
+    mapMetaSub = rospy.Subscriber("/map_metadata", MapMetaData, mapMetaCallback)
+    mapSub = rospy.Subscriber("/map", OccupancyGrid)
+    mapPub = rospy.Publisher("/map_check", GridCells, queue_size=1)
+    pathPub = rospy.Publisher("/path", Path, queue_size=10) # you can use other types if desired
+    wayPtPub = rospy.Publisher("/waypoints", GridCells, queue_size=1)
+    goalSub = rospy.Subscriber('move_base_simple/goal', PoseStamped, readGoal, queue_size=1) #change topic for best results
+    startSub = rospy.Subscriber('initialpose', PoseWithCovarianceStamped, readStart, queue_size=1) #change topic for best results
 
     # wait a second for publisher, subscribers, and TF
     rospy.sleep(1)
-
+    r= rospy.Rate(10)#10Hz
     while (1 and not rospy.is_shutdown()):
-        #publishCells(mapData) #publishing map data every 2 seconds
-        print("waiting")
-        rospy.sleep(1)
-        if start != None and goal != None:
-            pass
-            planPath()
-            print("Complete")
-            return
+        if start != None and goal != None and carPath == None:
+
+            carPath = planPath()
+            pathPub.publish(carPath)
+            print("Planning Complete")
+        elif carPath != None:
+            pubCarPath(carPath)
+        else:
+            print("waiting")
+        r.sleep()
 
 
 

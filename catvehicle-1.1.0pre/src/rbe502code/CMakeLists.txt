@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   gazebo_msgs
   velodyne_pointcloud
+  tf
   )
 
 ## System dependencies are found with CMake's conventions
