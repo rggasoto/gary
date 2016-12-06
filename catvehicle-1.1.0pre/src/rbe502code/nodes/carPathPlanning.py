@@ -47,19 +47,31 @@ def getStampedPose(point,frame_id):
     pose_stamped.pose = getPose(point)
     return pose_stamped
 
-def getROSPath(path,frame_id):
+def getROSPath(path,frame_id,fixedFrame):
     global fixed2Image
     ROSPath = Path()
+    DisplayPath = Path()
     ROSPath.header.frame_id = frame_id
     ROSPath.header.stamp = rospy.Time.now()
-    fixed2Image.waitForTransform(frame_id, "/map",rospy.Time(0), rospy.Duration(0.1))
+    DisplayPath.header.frame_id = fixedFrame
+    DisplayPath.header.stamp = rospy.Time.now()
+    needTransform = frame_id !=fixedFrame
+    if needTransform:
+        fixed2Image.waitForTransform(frame_id, fixedFrame,rospy.Time(0), rospy.Duration(0.1))
+        for i in path:
+            #transform Point from "frame_id" to base frame
+            #fixed2Image.waitForTransformFull("/azcar_sim/odom", rospy.Time.now(),frame_id, rospy.Time.now(), "/azcar_sim/odom",rospy.Duration(0.1))
+            #fixed2Image.waitForTransform("/azcar_sim/odom", frame_id, ROSPath.header.stamp, rospy.Duration(0.1))
+            transPose = fixed2Image.transformPose(frame_id, getStampedPose(i,frame_id))
+            ROSPath.poses.append(transPose)
+
     for i in path:
-        #transform Point from "frame_id" to base frame
-        #fixed2Image.waitForTransformFull("/azcar_sim/odom", rospy.Time.now(),frame_id, rospy.Time.now(), "/azcar_sim/odom",rospy.Duration(0.1))
-        #fixed2Image.waitForTransform("/azcar_sim/odom", frame_id, ROSPath.header.stamp, rospy.Duration(0.1))
-        transPose = fixed2Image.transformPose(frame_id, getStampedPose(i,frame_id))
-        ROSPath.poses.append(transPose)
-    return ROSPath
+        DisplayPath.poses.append(getStampedPose(i,fixedFrame))
+    #print ROSPath
+    #print "Disp Path"
+    #print DisplayPath
+    return ROSPath, DisplayPath
+
 def scale(xy):
     global mapResolution
     #meters to pixels
@@ -94,7 +106,7 @@ def rotate(points,theta):
 
 def mapToImage(points):
     global mapResolution,road
-    # Note: this only works with rectangular images!
+    # Note: this only works with rectangular imgetStampedPose(i,frame_id)ages!
     #rotate 180 about x axis
     # then shift by offset from road shape information
     roadShape = road.shape
@@ -182,24 +194,6 @@ def imageTF(image2Fixed):
                               "image",
                               "map")
 
-    #static_transformStamped = geometry_msgs.msg.TransformStamped()
-
-    #static_transformStamped.header.stamp = rospy.Time.now()
-    #static_transformStamped.header.frame_id = "/azcar_sim/odom"
-    #static_transformStamped.child_frame_id = "/image"
-
-    #static_transformStamped.transform.translation.x = 0
-    #static_transformStamped.transform.translation.y = delY
-    #static_transformStamped.transform.translation.z = 0
-
-    #quat = tf.transformations.quaternion_from_euler(pi, 0,0)
-    #static_transformStamped.transform.rotation.x = quat[0]
-    #static_transformStamped.transform.rotation.y = quat[1]
-    #static_transformStamped.transform.rotation.z = quat[2]
-    #static_transformStamped.transform.rotation.w = quat[3]
-    ## Broadcast Transform
-    #image2Fixed.sendTransform(static_transformStamped)
-
 def planPath():
     global carSize,imgpath, pathPub
     carSize = scale(np.array([2, 5]))  # Car is 2x5 meters in average
@@ -216,10 +210,10 @@ def planPath():
         path = finder.search(start,goal);
         drawPath(finder,path)
         if path:
-            return getROSPath(path,"/image")
+            (ROSPath, DisplayPath)= getROSPath(path,"/image","/azcar_sim/odom")
+            return ROSPath, DisplayPath
 
 def pubCarPath(path):
-    print("Publishing Path")
     pathPub.publish(path)
 
 def drawPath(finder,path):
@@ -261,7 +255,8 @@ def run():
     fixed2Image = tf.TransformListener()
 
     # Pubs and Subs
-    pathPub = rospy.Publisher("/path", Path, queue_size=10) # you can use other types if desired
+    pathDisplayPub = rospy.Publisher("/pathDisplay", Path, queue_size=10) # you can use other types if desired
+    pathPub = rospy.Publisher("/path", Path, queue_size=10)  # you can use other types if desired
     goalSub = rospy.Subscriber('move_base_simple/goal', PoseStamped, readGoal, queue_size=1) #change topic for best results
     startSub = rospy.Subscriber('initialpose', PoseWithCovarianceStamped, readStart, queue_size=1) #change topic for best results
     mapMetaSub = rospy.Subscriber("/map_metadata", MapMetaData, mapMetaCallback)
@@ -269,7 +264,14 @@ def run():
     # wait a second for publisher, subscribers, and TF
     rospy.sleep(1)
     fixed2Image.waitForTransform("/map", "/azcar_sim/odom", rospy.Time(), rospy.Duration(0.1))
+
+    # Build a "wait" Path for startup with no motion
+    startPoint = state(0, 0, 0, 0)
+    waitPath = []
+    waitPath.append(startPoint)
+    (zeroPath, zeroImagePath)= getROSPath(waitPath, "/azcar_sim/odom", "/azcar_sim/odom")
     r= rospy.Rate(10)#10Hz
+    print("Please Set Initial 2D Pose Estimate and Goal with mouse")
     while (not rospy.is_shutdown()):
         # Continuously publish transform to image space
         try:
@@ -279,15 +281,18 @@ def run():
             continue
 
         # Check For Path Request
-        if start != None and goal != None and carPath == None:
 
-            carPath = planPath()
+        if start != None and goal != None and carPath == None:
+            (carPath, RVIZPath) = planPath()
+            print "RVIZ Path"
+            print RVIZPath
+            pathDisplayPub.publish(RVIZPath)
             pathPub.publish(carPath)
-            print("Planning Complete")
         elif carPath != None:
             pubCarPath(carPath)
+            pathDisplayPub.publish(RVIZPath)
         else:
-            print("waiting")
+            pathPub.publish(zeroPath)
         r.sleep()
 
 

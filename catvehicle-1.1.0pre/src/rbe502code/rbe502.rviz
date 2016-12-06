@@ -8,7 +8,7 @@ Panels:
         - /Status1
         - /Map1
         - /Path2
-        - /Path2/Status1
+        - /Axes1
       Splitter Ratio: 0.5
     Tree Height: 719
   - Class: rviz/Selection
@@ -55,7 +55,7 @@ Visualization Manager:
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
         Max Value: 3.12187
-        Min Value: -0.479514
+        Min Value: -0.486604
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -248,7 +248,7 @@ Visualization Manager:
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
-      Color: 25; 255; 0
+      Color: 0; 255; 255
       Enabled: true
       Line Style: Lines
       Line Width: 0.03
@@ -259,6 +259,13 @@ Visualization Manager:
         Z: 0
       Topic: /path
       Unreliable: false
+      Value: true
+    - Class: rviz/Axes
+      Enabled: true
+      Length: 1
+      Name: Axes
+      Radius: 0.1
+      Reference Frame: azcar_sim/odom
       Value: true
   Enabled: true
   Global Options:
@@ -292,11 +299,11 @@ Visualization Manager:
         Value: false
       Name: Current View
       Near Clip Distance: 0.01
-      Scale: 5.11256
+      Scale: 10.8695
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz)
-      X: 46.5378
-      Y: 31.102
+      X: 17.9207
+      Y: 16.0877
     Saved:
       - Class: rviz/FPS
         Enable Stereo Rendering:
@@ -330,5 +337,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1215
-  X: 1975
-  Y: 24
+  X: 685
+  Y: 14
