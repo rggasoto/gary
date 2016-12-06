@@ -44,7 +44,9 @@ def getStampedPose(point,frame_id):
     pose_stamped.header.frame_id = frame_id
     pose_stamped.pose = getPose(point)
     return pose_stamped
+
 def getROSPath(path,frame_id):
+    global fixed2Image
     ROSPath = Path()
     ROSPath.header.frame_id = frame_id
     ROSPath.header.stamp = rospy.Time.now()
@@ -84,7 +86,7 @@ def rotate(points,theta):
     return rPoints
 
 def mapToImage(points):
-    global mapResolution
+    global mapResolution,road
     # Note: this only works with rectangular images!
     #rotate 180 about x axis
     # then shift by offset from road shape information
@@ -119,14 +121,13 @@ def collisionCheck(state):
 def readGoal(goalPos):
     #PoseStamped
     global goal
-    x = goalPos.pose.position.x
-    y = goalPos.pose.position.y
-    quat = goalPos.pose.orientation
+    fixed2Image.waitForTransformFull("/image",rospy.Time.now(),
+                                  "/map", rospy.Time.now(), "/azcar_sim/odom",rospy.Duration(0.1))
+    trans = fixed2Image.transformPose("/image",goalPos)
+    quat = trans.pose.orientation
     q = [quat.x, quat.y, quat.z, quat.w]
     roll, pitch, yaw = euler_from_quaternion(q)
-    points = np.matrix([x,y,0,1])
-    goalCoord = mapToImage(points.transpose())
-    goal = state(goalCoord.item(0),goalCoord.item(1),-yaw+pi/2,0)
+    goal = state(trans.pose.position.x, trans.pose.position.y, yaw + pi / 2, 0)
     print goal.x
     print goal.y
     print goal.theta
@@ -149,6 +150,7 @@ def readStart(startPos):
     print start.theta
     print start.phi
 
+
 def mapMetaCallback(metaData):
     global mapResolution, road, imgpath
     mapResolution = metaData.resolution
@@ -160,7 +162,18 @@ def mapMetaCallback(metaData):
     road = scipy.misc.imread(imgpath, flatten=True)
     print "road size is : ", road.size, " and shape is", road.shape
     road = (road == 0).astype(int)  # threshold path
-    rospy.sleep(5)
+
+def imageTF(image2Fixed):
+    global mapResolution,road
+    roadShape = road.shape
+    #extract
+    delY = roadShape[1]*mapResolution
+    # Broadcast Transform
+    image2Fixed.sendTransform((0.0, delY, 0.0),
+                              tf.transformations.quaternion_from_euler(pi, 0, 0),
+                              rospy.Time.now(),
+                              "image",
+                              "map")
 
 def planPath():
     global carSize,imgpath, pathPub
@@ -178,7 +191,7 @@ def planPath():
         path = finder.search(start,goal);
         drawPath(finder,path)
         if path:
-            return getROSPath(path,"/map")
+            return getROSPath(path,"/image")
 
 def pubCarPath(path):
     print("Publishing Path")
@@ -213,24 +226,34 @@ def run():
     global pathPub
     global carSize, road
     global start, goal,mapResolution,impath
+    global fixed2Image, image2Fixed
     start = None
     goal = None
     carPath = None
 
     rospy.init_node('carPathPlanning')
+    image2Fixed = tf.TransformBroadcaster()
+    fixed2Image = tf.TransformListener()
 
-    mapMetaSub = rospy.Subscriber("/map_metadata", MapMetaData, mapMetaCallback)
-    mapSub = rospy.Subscriber("/map", OccupancyGrid)
-    mapPub = rospy.Publisher("/map_check", GridCells, queue_size=1)
+    # Pubs and Subs
     pathPub = rospy.Publisher("/path", Path, queue_size=10) # you can use other types if desired
-    wayPtPub = rospy.Publisher("/waypoints", GridCells, queue_size=1)
     goalSub = rospy.Subscriber('move_base_simple/goal', PoseStamped, readGoal, queue_size=1) #change topic for best results
     startSub = rospy.Subscriber('initialpose', PoseWithCovarianceStamped, readStart, queue_size=1) #change topic for best results
+    mapMetaSub = rospy.Subscriber("/map_metadata", MapMetaData, mapMetaCallback)
 
     # wait a second for publisher, subscribers, and TF
     rospy.sleep(1)
+    # map2Fixed.waitForTransform("/map", "/azcar_sim/odom", rospy.Time(), rospy.Duration(0.1))
     r= rospy.Rate(10)#10Hz
-    while (1 and not rospy.is_shutdown()):
+    while (not rospy.is_shutdown()):
+        # Continuously publish transform to image space
+        try:
+            imageTF(image2Fixed)
+        except (tf.Exception, tf.LookupException, tf.ConnectivityException):
+            print "image to fixed frame transform not running"
+            continue
+
+        # Check For Path Request
         if start != None and goal != None and carPath == None:
 
             carPath = planPath()
