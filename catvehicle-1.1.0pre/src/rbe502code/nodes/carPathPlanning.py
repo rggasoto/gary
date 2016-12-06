@@ -10,7 +10,9 @@ import rospy
 import math
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 import tf2_ros
+import tf2_geometry_msgs
 import std_msgs.msg
+import geometry_msgs.msg
 
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import MapMetaData
@@ -50,8 +52,13 @@ def getROSPath(path,frame_id):
     ROSPath = Path()
     ROSPath.header.frame_id = frame_id
     ROSPath.header.stamp = rospy.Time.now()
+    fixed2Image.waitForTransform(frame_id, "/map",rospy.Time(0), rospy.Duration(0.1))
     for i in path:
-        ROSPath.poses.append(getStampedPose(i,frame_id))
+        #transform Point from "frame_id" to base frame
+        #fixed2Image.waitForTransformFull("/azcar_sim/odom", rospy.Time.now(),frame_id, rospy.Time.now(), "/azcar_sim/odom",rospy.Duration(0.1))
+        #fixed2Image.waitForTransform("/azcar_sim/odom", frame_id, ROSPath.header.stamp, rospy.Duration(0.1))
+        transPose = fixed2Image.transformPose(frame_id, getStampedPose(i,frame_id))
+        ROSPath.poses.append(transPose)
     return ROSPath
 def scale(xy):
     global mapResolution
@@ -120,9 +127,9 @@ def collisionCheck(state):
 
 def readGoal(goalPos):
     #PoseStamped
-    global goal
+    global goal, tfBuffer, fixed2Image
     fixed2Image.waitForTransformFull("/image",rospy.Time.now(),
-                                  "/map", rospy.Time.now(), "/azcar_sim/odom",rospy.Duration(0.1))
+                                  "/azcar_sim/odom", rospy.Time.now(), "/azcar_sim/odom",rospy.Duration(0.1))
     trans = fixed2Image.transformPose("/image",goalPos)
     quat = trans.pose.orientation
     q = [quat.x, quat.y, quat.z, quat.w]
@@ -168,12 +175,30 @@ def imageTF(image2Fixed):
     roadShape = road.shape
     #extract
     delY = roadShape[1]*mapResolution
-    # Broadcast Transform
+    # Build Transform
     image2Fixed.sendTransform((0.0, delY, 0.0),
                               tf.transformations.quaternion_from_euler(pi, 0, 0),
                               rospy.Time.now(),
                               "image",
                               "map")
+
+    #static_transformStamped = geometry_msgs.msg.TransformStamped()
+
+    #static_transformStamped.header.stamp = rospy.Time.now()
+    #static_transformStamped.header.frame_id = "/azcar_sim/odom"
+    #static_transformStamped.child_frame_id = "/image"
+
+    #static_transformStamped.transform.translation.x = 0
+    #static_transformStamped.transform.translation.y = delY
+    #static_transformStamped.transform.translation.z = 0
+
+    #quat = tf.transformations.quaternion_from_euler(pi, 0,0)
+    #static_transformStamped.transform.rotation.x = quat[0]
+    #static_transformStamped.transform.rotation.y = quat[1]
+    #static_transformStamped.transform.rotation.z = quat[2]
+    #static_transformStamped.transform.rotation.w = quat[3]
+    ## Broadcast Transform
+    #image2Fixed.sendTransform(static_transformStamped)
 
 def planPath():
     global carSize,imgpath, pathPub
@@ -226,7 +251,7 @@ def run():
     global pathPub
     global carSize, road
     global start, goal,mapResolution,impath
-    global fixed2Image, image2Fixed
+    global fixed2Image, image2Fixed, tfBuffer
     start = None
     goal = None
     carPath = None
@@ -243,7 +268,7 @@ def run():
 
     # wait a second for publisher, subscribers, and TF
     rospy.sleep(1)
-    # map2Fixed.waitForTransform("/map", "/azcar_sim/odom", rospy.Time(), rospy.Duration(0.1))
+    fixed2Image.waitForTransform("/map", "/azcar_sim/odom", rospy.Time(), rospy.Duration(0.1))
     r= rospy.Rate(10)#10Hz
     while (not rospy.is_shutdown()):
         # Continuously publish transform to image space

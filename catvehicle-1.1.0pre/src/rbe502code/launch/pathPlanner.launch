@@ -34,4 +34,6 @@ roslaunch rbe502code pathPlanner.launch
         name="broadcaster_fixed2map" />
   <!--<node pkg="rbe502code" type="carPathPlanning.py"
         name="carPathPlanning" />-->
+  <!--<node pkg="tf2_ros" type="static_transform_publisher"
+   name="carPathBroadcaster" args="0 96.1 0 0 0 pi /azcar_sim/odom /image" />-->
 </launch>
