@@ -228,7 +228,7 @@ class Astar:
                 nextcost = self.cost[current] + cost
                 if nextmove not in self.cost or nextcost < self.cost[nextmove]:
                     self.cost[nextmove] = nextcost
-                    priority = nextcost*.8 + 1.2*self.h(nextmove)
+                    priority = nextcost*.8 + 1.2*self.h_dubins(nextmove)
                     self.frontier.put((priority,nextmove))
                     self.came_from[nextmove] = current
                 #raw_input("Press enter to continue...")      
