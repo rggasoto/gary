@@ -5,6 +5,7 @@
 *.sh
 *.cmake
 *.pc
+*.pyc
 *.catkin
 *.rosinstall
 *.pyc
