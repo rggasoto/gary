@@ -14,6 +14,7 @@ import tf2_geometry_msgs
 import std_msgs.msg
 import geometry_msgs.msg
 
+
 from nav_msgs.msg import OccupancyGrid
 from nav_msgs.msg import MapMetaData
 from nav_msgs.msg import GridCells
@@ -47,26 +48,32 @@ def getStampedPose(point,frame_id):
     pose_stamped.pose = getPose(point)
     return pose_stamped
 
-def getROSPath(path,frame_id,fixedFrame):
-    global fixed2Image
+def getROSPath(path,imageFrame,fixedFrame):
+    global listener
     ROSPath = Path()
     DisplayPath = Path()
-    ROSPath.header.frame_id = frame_id
-    ROSPath.header.stamp = rospy.Time.now()
-    DisplayPath.header.frame_id = fixedFrame
+    DisplayPath.header.frame_id = imageFrame
     DisplayPath.header.stamp = rospy.Time.now()
-    needTransform = frame_id !=fixedFrame
+    ROSPath.header.frame_id = fixedFrame
+    ROSPath.header.stamp = rospy.Time.now()
+    needTransform = imageFrame !=fixedFrame
     if needTransform:
-        fixed2Image.waitForTransform(frame_id, fixedFrame,rospy.Time(0), rospy.Duration(0.1))
+        #listener.waitForTransformFull("/azcar_sim/odom", rospy.Time.now(),
+        #                                 "/image", rospy.Time.now(), "/azcar_sim/odom", rospy.Duration(0.1))
+        listener.waitForTransform(imageFrame, fixedFrame,rospy.Time(0), rospy.Duration(0.1))
         for i in path:
             #transform Point from "frame_id" to base frame
             #fixed2Image.waitForTransformFull("/azcar_sim/odom", rospy.Time.now(),frame_id, rospy.Time.now(), "/azcar_sim/odom",rospy.Duration(0.1))
             #fixed2Image.waitForTransform("/azcar_sim/odom", frame_id, ROSPath.header.stamp, rospy.Duration(0.1))
-            transPose = fixed2Image.transformPose(frame_id, getStampedPose(i,frame_id))
-            ROSPath.poses.append(transPose)
+            transPose = listener.transformPose(imageFrame, getStampedPose(i,imageFrame))
+            DisplayPath.poses.append(transPose)
 
     for i in path:
-        DisplayPath.poses.append(getStampedPose(i,fixedFrame))
+        # need to unpack point data to remove phi from point for transform, then add it back in
+        pt = np.matrix([i.x, i.y, 0, 1])
+        j = imageToMap(pt.transpose())
+        pathState = state(j.item(0), j.item(1), pi/2-i.theta, i.phi)
+        ROSPath.poses.append(getStampedPose(pathState,fixedFrame))
     #print ROSPath
     #print "Disp Path"
     #print DisplayPath
@@ -117,6 +124,19 @@ def mapToImage(points):
     rPoints = R*points
     return rPoints
 
+def imageToMap(points):
+    global mapResolution,road
+    # Note: this only works with rectangular imgetStampedPose(i,frame_id)ages!
+    #rotate 180 about x axis
+    # then shift by offset from road shape information
+    roadShape = road.shape
+    #extract
+    delY = roadShape[1]*mapResolution
+    print delY
+    R = (np.matrix([[1,0,0,0],[0, -1, 0,delY],[0, 0, -1,0],[0,0,0,1]]));
+    rPoints = R*points
+    return rPoints
+
 
 
 def matrix2Tuples(matrix):
@@ -139,10 +159,10 @@ def collisionCheck(state):
 
 def readGoal(goalPos):
     #PoseStamped
-    global goal, tfBuffer, fixed2Image
-    fixed2Image.waitForTransformFull("/image",rospy.Time.now(),
+    global goal, tfBuffer, listener
+    listener.waitForTransformFull("/image",rospy.Time.now(),
                                   "/azcar_sim/odom", rospy.Time.now(), "/azcar_sim/odom",rospy.Duration(0.1))
-    trans = fixed2Image.transformPose("/image",goalPos)
+    trans = listener.transformPose("/image",goalPos)
     quat = trans.pose.orientation
     q = [quat.x, quat.y, quat.z, quat.w]
     roll, pitch, yaw = euler_from_quaternion(q)
@@ -183,7 +203,7 @@ def mapMetaCallback(metaData):
     road = (road == 0).astype(int)  # threshold path
 
 def imageTF(image2Fixed):
-    global mapResolution,road
+    global mapResolution,road, delY
     roadShape = road.shape
     #extract
     delY = roadShape[1]*mapResolution
@@ -210,6 +230,8 @@ def planPath():
         path = finder.search(start,goal);
         drawPath(finder,path)
         if path:
+            # need to broadcast the transform again?
+            imageTF(image2Fixed)
             (ROSPath, DisplayPath)= getROSPath(path,"/image","/azcar_sim/odom")
             return ROSPath, DisplayPath
 
@@ -243,16 +265,17 @@ def drawPath(finder,path):
 #Main handler of the project
 def run():
     global pathPub
-    global carSize, road
+    global carSize, road, delY
     global start, goal,mapResolution,impath
-    global fixed2Image, image2Fixed, tfBuffer
+    global fixed2Image, image2Fixed, listener
     start = None
     goal = None
     carPath = None
 
     rospy.init_node('carPathPlanning')
     image2Fixed = tf.TransformBroadcaster()
-    fixed2Image = tf.TransformListener()
+    fixed2Image = tf.TransformBroadcaster()
+    listener = tf.TransformListener()
 
     # Pubs and Subs
     pathDisplayPub = rospy.Publisher("/pathDisplay", Path, queue_size=10) # you can use other types if desired
@@ -263,10 +286,11 @@ def run():
 
     # wait a second for publisher, subscribers, and TF
     rospy.sleep(1)
-    fixed2Image.waitForTransform("/map", "/azcar_sim/odom", rospy.Time(), rospy.Duration(0.1))
-
-    # Build a "wait" Path for startup with no motion
-    startPoint = state(0, 0, 0, 0)
+    listener.waitForTransform("/map", "/azcar_sim/odom", rospy.Time(), rospy.Duration(0.1))
+    imageTF(image2Fixed)
+    #fixedTF(fixed2Image)
+    # Build a "wait" Path for startup with no motion (needs to be in image coordinates.)
+    startPoint = state(0, delY, pi, 0)
     waitPath = []
     waitPath.append(startPoint)
     (zeroPath, zeroImagePath)= getROSPath(waitPath, "/azcar_sim/odom", "/azcar_sim/odom")
@@ -276,6 +300,7 @@ def run():
         # Continuously publish transform to image space
         try:
             imageTF(image2Fixed)
+            #fixedTF(fixed2Image)
         except (tf.Exception, tf.LookupException, tf.ConnectivityException):
             print "image to fixed frame transform not running"
             continue
@@ -283,7 +308,15 @@ def run():
         # Check For Path Request
 
         if start != None and goal != None and carPath == None:
-            (carPath, RVIZPath) = planPath()
+            try:
+                (RVIZPath, carPath) = planPath()
+            except (TypeError):
+                start = None
+                goal = None
+                print "Path Not Possible, select again!"
+                continue
+            print "RVIZ Path"
+            print RVIZPath
             print "RVIZ Path"
             print RVIZPath
             pathDisplayPub.publish(RVIZPath)
@@ -292,7 +325,9 @@ def run():
             pubCarPath(carPath)
             pathDisplayPub.publish(RVIZPath)
         else:
+            pass
             pathPub.publish(zeroPath)
+            pathDisplayPub.publish(zeroPath)
         r.sleep()
 
 
