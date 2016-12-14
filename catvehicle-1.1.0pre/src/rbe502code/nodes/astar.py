@@ -78,6 +78,7 @@ class Astar:
         return abs(node.x-self.destination.x) + abs(node.y-self.destination.y) + abs(node.theta -self.destination.theta)
     def h_euclidean(self,node):
         '''Returns Euclidean distance from node to destination'''
+        print   "hi"
         return ((node.x-self.destination.x)**2.0 + (node.y-self.destination.y)**2.0 + ((node.theta -self.destination.theta)*(self.v*self.stepsize))**2)**0.5
 
     def __init__(self,stepsize,heuristics,v, collisionCheck,maxBranch,steeringSpeed,steeringLimit,L):
@@ -228,7 +229,7 @@ class Astar:
                 nextcost = self.cost[current] + cost
                 if nextmove not in self.cost or nextcost < self.cost[nextmove]:
                     self.cost[nextmove] = nextcost
-                    priority = nextcost*.8 + 1.2*self.h_dubins(nextmove)
+                    priority = nextcost*.8 + 1.2*self.h(nextmove)
                     self.frontier.put((priority,nextmove))
                     self.came_from[nextmove] = current
                 #raw_input("Press enter to continue...")      
