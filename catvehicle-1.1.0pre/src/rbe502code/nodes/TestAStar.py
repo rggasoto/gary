@@ -8,7 +8,7 @@ from math import *
 
 def scale(xy):
     return xy*20 #each pixel is 1/4 of a meter
-imgpath = "path2.png"
+imgpath = "Path2.png"
 carSize = scale(np.array([2,5])) # Car is 2x5 meters in average
 road = scipy.misc.imread(imgpath,flatten=True)
 road = (road == 0).astype(int)#treshold path
@@ -53,7 +53,49 @@ def matrix2Tuples(matrix):
     return tuples
 
 
+def createLine(x1, y1, x2, y2):
+	if x1 != x2:
+		m = (y2 - y1)/ (x2 - x1)
+		b = y2 - (m*x2)
+		return (m, b)
+
+
 def collisionCheck(state):
+	carShape = getCarShape(state)
+	for i in range(carShape.shape[1]):
+		#print carShape[1,i],carShape[0,i]
+		if int(carShape[1,i]) >= road.shape[1] or int(carShape[0,i]) >= road.shape[0]:
+			return True
+
+		if road[int(carShape[1,i]),int(carShape[0,i])] == 0:
+			return True
+		x1 = carShape[:,i-1][0]
+		y1 = carShape[:,i-1][1]
+		# Get the final XY values of the car side
+		x2 = carShape[:,i][0]
+		y2 = carShape[:,i][1]
+		#If the vehicle is not perfectly vertical then create a line equation between the car corner to represent the car side
+		if int(x1) != int(x2):
+			# Get the slope m and the y intercept b of the line
+			m, b = createLine(x1,y1,x2,y2)
+			# Interate X from the initial X0 to XF to create x axis values
+			for x in np.linspace(float(x1), float(x2),1):
+				# For every x between x1 and X2 return a y value
+				y = (m*x) + b
+				# Check to see if an obstacle is present on the road where our xy axis value.
+				if road[int(x),int(y)] == 0:
+					return True
+		# Check for when the x1 = x2
+		# This method is needed because the slope will be infinite (y2 - y1)/ (x2 - x1) => (y2 - y1)/0
+		else:
+			# Since X1 = X2 keep X1 constant. Then get the starting Y1 and ending Y2 values and interate over them to create a vertical line
+			for y in np.linspace(float(y1), float(y2),1):
+				if road[int(x1), int(y)] == 0:
+					return True
+	return False
+
+
+def collisionCheck2(state):
     carShape = getCarShape(state)
     for i in range(carShape.shape[1]):
         #print carShape[1,i],carShape[0,i]
@@ -71,14 +113,20 @@ TP = tuple(scale(np.array(([goal.x,goal.y]))))
 # draw.point(TP,fill =(255,0,0))
 print collisionCheck(goal)
 print collisionCheck(start)
-
+raw_input("euclidean");
 # stepsize,heuristics,v, collisionCheck,maxBranch,steeringSpeed,steeringLimit,L)
-finder = Astar(.25,"euclidean",6,collisionCheck,5,radians(100),radians(35),4.5)
+finder = Astar(.25,"dubin",6,collisionCheck,5,radians(100),radians(35),4.5)
 path = finder.search(start,goal);
 
+j =0
 for i in finder.c_visited:
     draw.ellipse([scale(i.x)-5,scale(i.y)-5,scale(i.x)+5,scale(i.y)+5],fill=(0,255,0,100))
     draw.polygon(matrix2Tuples(getCarShape(i)),fill=(0,255,255,0),outline = (255,0,0,150))
+    q0 = (i.x,i.y,i.theta-pi/2)
+    q1 = (goal.x,goal.y,goal.theta-pi/2)
+    Path,_ = dubins.path_sample(q0,q1,4.5/tan(radians(30)),0.5)
+    im.save("video_dubin2/{0:05d}.png".format(j),"PNG")
+    j+=1;
 draw.polygon(matrix2Tuples(getCarShape(start)),fill=(255,0,0))
 if path:
     rgb = np.zeros((4,len(path)),dtype = np.int)
@@ -120,6 +168,7 @@ print plotxy
 draw.line(plotxy,fill=(255,0,0,255),width=2)
 draw.point(plotxy[0],fill=(0,255,0,255))
 draw.polygon(matrix2Tuples(getCarShape(goal)),fill=(0,0,255,60))
+im.save("video_dubin2/path.png","PNG")
 del draw
 
-im.save("draw5.png","PNG")
+
