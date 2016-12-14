@@ -50,26 +50,26 @@ def getStampedPose(point,frame_id):
     return pose_stamped
 
 def getROSPath(path,imageFrame,fixedFrame):
-    global listener
+    global start
     ROSPath = Path()
     DisplayPath = Path()
     DisplayPath.header.frame_id = imageFrame
     DisplayPath.header.stamp = rospy.Time.now()
     ROSPath.header.frame_id = fixedFrame
     ROSPath.header.stamp = rospy.Time.now()
-    needTransform = imageFrame !=fixedFrame
-    if needTransform:
-        listener.waitForTransform(imageFrame, fixedFrame,rospy.Time(0), rospy.Duration(0.1))
-        for i in path:
-            transPose = listener.transformPose(imageFrame, getStampedPose(i,imageFrame))
-            DisplayPath.poses.append(transPose)
 
+    stPt = np.matrix([start.x, start.y, 0, 1])
+    stMap = imageToMap(stPt.transpose())
+    startState = state(stMap.item(0), stMap.item(1), pi / 2 - start.theta, start.phi)
+    ROSPath.poses.append(getStampedPose(startState, fixedFrame))
+    # Prepend path with current car location
     for i in path:
         # i.z is steering angle, which we don't want to transform
         pt = np.matrix([i.x, i.y, 0, 1])
         j = imageToMap(pt.transpose())
         pathState = state(j.item(0), j.item(1), pi/2-i.theta, i.phi)
-    return ROSPath, DisplayPath
+        ROSPath.poses.append(getStampedPose(pathState,fixedFrame))
+    return ROSPath#, DisplayPath
 
 def scale(xy):
     global mapResolution
@@ -98,25 +98,29 @@ def rotate(points,theta):
     return rPoints
 
 def mapToImage(points):
-    global mapResolution,road
+    global mapResolution,road, mapOrigin
     # Note: this only works with rectangular images!
     #rotate 180 about x axis
     # then shift by offset from road shape information
     roadShape = road.shape
     delY = roadShape[1]*mapResolution
+    mapY = mapOrigin.y
+    mapX = -mapOrigin.x
     #print delY
-    R = np.matrix([[1,0,0,0],[0, -1, 0,delY],[0, 0, -1,0],[0,0,0,1]]);
+    R = np.matrix([[1,0,0,0],[0, -1, 0,delY+mapY],[0, 0, -1,0],[0,0,0,1]]);
     rPoints = R*points
     return rPoints
 
 def imageToMap(points):
-    global mapResolution,road
+    global mapResolution,road,mapOrigin
     # Note: this only works with rectangular images!
     #rotate 180 about x axis
     # then shift by offset from road shape information
     roadShape = road.shape
     delY = roadShape[1]*mapResolution
-    R = (np.matrix([[1,0,0,0],[0, -1, 0,delY],[0, 0, -1,0],[0,0,0,1]]));
+    mapY = mapOrigin.y
+    mapX = -mapOrigin.x
+    R = (np.matrix([[1,0,0,0],[0, -1, 0,delY+mapY],[0, 0, -1,0],[0,0,0,1]]));
     rPoints = R*points
     return rPoints
 
@@ -172,10 +176,11 @@ def readStart(startPos):
     #print start.phi
 
 
-def mapMetaCallback(metaData):u
+def mapMetaCallback(metaData):
+    # only including map offset in transformation, no rotation yet
     global mapResolution, road, imgpath, mapOrigin
     mapResolution = metaData.resolution
-    mapOrigin = metaData.origin
+    mapOrigin = metaData.origin.position
     print mapOrigin
     print "map resolution is ", mapResolution, "m/pix"
     # retrieve current working directory
@@ -209,15 +214,16 @@ def planPath():
     #print collisionCheck(start)
     
     # stepsize,heuristics,v, collisionCheck,maxBranch,steeringSpeed,steeringLimit,L)
-    finder = Astar(.5,"dubins",5,collisionCheck,5,radians(70),radians(35),4.5)
+    finder = Astar(.25,"dubin",5,collisionCheck,5,radians(70),radians(35),4.5)
     if not (collisionCheck(goal) and collisionCheck(start)):
         path = finder.search(start,goal);
         drawPath(finder,path)
         if path:
             # need to broadcast the transform again?
             imageTF(image2Fixed)
-            (ROSPath, DisplayPath)= getROSPath(path,"/image","/azcar_sim/odom")
-            return ROSPath, DisplayPath
+            #(ROSPath, DisplayPath)= getROSPath(path,"/image","/azcar_sim/odom")
+            (ROSPath)= getROSPath(path,"/image","/azcar_sim/odom")
+            return ROSPath
 
 def pubCarPath(path):
     pathPub.publish(path)
@@ -274,12 +280,15 @@ def run():
     imageTF(image2Fixed)
     # once transform is complete, start recording odometry for current car position
     odomSub = rospy.Subscriber('azcar_sim/odom', Odometry, readStart, queue_size=1) #change topic for best results
-    rospy.sleep(1)
+    rospy.sleep(.1)
+    #odomSub.unregister
+    #startSub = rospy.Subscriber('/initialpose', PoseWithCovarianceStamped, readStart, queue_size=1) #change topic for best results
+    #rospy.sleep(1)
     #fixedTF(fixed2Image)
     # Build a "wait" Path for startup with no motion (needs to be in image coordinates.)
-    waitPath = []
-    waitPath.append(start)
-    (zeroPath, zeroImagePath)= getROSPath(waitPath, "/azcar_sim/odom", "/azcar_sim/odom")
+    #waitPath = []
+    #waitPath.append(start)
+    #(zeroPath, zeroImagePath)= getROSPath(waitPath, "/azcar_sim/odom", "/azcar_sim/odom")
     r= rospy.Rate(10)#10Hz
     print("Please Set Goal Position with mouse. Click on '2D Nav Goal' and then select a position and heading.")
     print("Both the car and the goal position must be within the black space of the map to find a possible path.")
@@ -294,23 +303,25 @@ def run():
         # Check For Path Request
 
         if goal != None and carPath == None:
-            try:
-                (RVIZPath, carPath) = planPath()
-            except (TypeError):
-                goal = None
-                print "Path Not Possible, select again! If the goal position or current car location are inside an obstacle it's not possible to find a path."
-                continue
-            print "RVIZ Path"
-            print RVIZPath
-            pathDisplayPub.publish(RVIZPath)
+            #try:
+            carPath = planPath()
+            #except (TypeError):
+                #goal = None
+                #print "Path Not Possible, select again! If the goal position or current car location are inside an obstacle it's not possible to find a path."
+                #continue
+            #print "RVIZ Path"
+            #print RVIZPath
+            #print "carPath"
+            #print carPath
+            #pathDisplayPub.publish(RVIZPath)
             pathPub.publish(carPath)
         elif carPath != None:
             pubCarPath(carPath)
-            pathDisplayPub.publish(RVIZPath)
+            #pathDisplayPub.publish(RVIZPath)
         else:
             pass
-            pathPub.publish(zeroPath)
-            pathDisplayPub.publish(zeroPath)
+            #pathPub.publish(zeroPath)
+            #pathDisplayPub.publish(zeroPath)
         r.sleep()
 
 
