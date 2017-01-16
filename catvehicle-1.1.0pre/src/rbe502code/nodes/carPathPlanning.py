@@ -146,7 +146,8 @@ def collisionCheck(state):
 
 def readGoal(goalPos):
     #PoseStamped
-    global goal, tfBuffer, listener
+    global goal, tfBuffer, listener, carPath
+    carPath = None #reset for new nav goals
     listener.waitForTransformFull("/image",rospy.Time.now(),
                                   "/azcar_sim/odom", rospy.Time.now(), "/azcar_sim/odom",rospy.Duration(0.1))
     trans = listener.transformPose("/image",goalPos)
@@ -253,7 +254,7 @@ def drawPath(finder,path):
 
 #Main handler of the project
 def run():
-    global pathPub
+    global pathPub, carPath
     global carSize, road, delY
     global start, goal,mapResolution,impath, mapOrigin
     global fixed2Image, image2Fixed, listener
