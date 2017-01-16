@@ -120,7 +120,7 @@ def imageToMap(points):
     delY = roadShape[1]*mapResolution
     mapY = mapOrigin.y
     mapX = -mapOrigin.x
-    R = (np.matrix([[1,0,0,0],[0, -1, 0,delY+mapY],[0, 0, -1,0],[0,0,0,1]]));
+    R = (np.matrix([[1,0,0,-mapX],[0, -1, 0,delY+mapY],[0, 0, -1,0],[0,0,0,1]]));
     rPoints = R*points
     return rPoints
 
@@ -154,10 +154,10 @@ def readGoal(goalPos):
     q = [quat.x, quat.y, quat.z, quat.w]
     roll, pitch, yaw = euler_from_quaternion(q)
     goal = state(trans.pose.position.x, trans.pose.position.y, yaw + pi / 2, 0)
-    print goal.x
-    print goal.y
-    print goal.theta
-    print goal.phi
+    #print goal.x
+    #print goal.y
+    #print goal.theta
+    #print goal.phi
 
 def readStart(startPos):
     #PoseWithCovarianceStamped
@@ -181,8 +181,8 @@ def mapMetaCallback(metaData):
     global mapResolution, road, imgpath, mapOrigin
     mapResolution = metaData.resolution
     mapOrigin = metaData.origin.position
-    print mapOrigin
-    print "map resolution is ", mapResolution, "m/pix"
+    #print mapOrigin
+    print "map resolution is ", mapResolution, "meters/pixel"
     # retrieve current working directory
     currDir = os.path.dirname(os.path.realpath(__file__))
     parDir = os.path.abspath(os.path.join(currDir, os.pardir))
@@ -214,14 +214,13 @@ def planPath():
     #print collisionCheck(start)
     
     # stepsize,heuristics,v, collisionCheck,maxBranch,steeringSpeed,steeringLimit,L)
-    finder = Astar(.25,"dubin",5,collisionCheck,5,radians(70),radians(35),4.5)
+    finder = Astar(.1,"dubin",5,collisionCheck,5,radians(70),radians(35),4.5)
     if not (collisionCheck(goal) and collisionCheck(start)):
         path = finder.search(start,goal);
         drawPath(finder,path)
         if path:
             # need to broadcast the transform again?
             imageTF(image2Fixed)
-            #(ROSPath, DisplayPath)= getROSPath(path,"/image","/azcar_sim/odom")
             (ROSPath)= getROSPath(path,"/image","/azcar_sim/odom")
             return ROSPath
 
@@ -281,14 +280,6 @@ def run():
     # once transform is complete, start recording odometry for current car position
     odomSub = rospy.Subscriber('azcar_sim/odom', Odometry, readStart, queue_size=1) #change topic for best results
     rospy.sleep(.1)
-    #odomSub.unregister
-    #startSub = rospy.Subscriber('/initialpose', PoseWithCovarianceStamped, readStart, queue_size=1) #change topic for best results
-    #rospy.sleep(1)
-    #fixedTF(fixed2Image)
-    # Build a "wait" Path for startup with no motion (needs to be in image coordinates.)
-    #waitPath = []
-    #waitPath.append(start)
-    #(zeroPath, zeroImagePath)= getROSPath(waitPath, "/azcar_sim/odom", "/azcar_sim/odom")
     r= rospy.Rate(10)#10Hz
     print("Please Set Goal Position with mouse. Click on '2D Nav Goal' and then select a position and heading.")
     print("Both the car and the goal position must be within the black space of the map to find a possible path.")
@@ -301,30 +292,14 @@ def run():
             continue
 
         # Check For Path Request
-
         if goal != None and carPath == None:
-            #try:
             carPath = planPath()
-            #except (TypeError):
-                #goal = None
-                #print "Path Not Possible, select again! If the goal position or current car location are inside an obstacle it's not possible to find a path."
-                #continue
-            #print "RVIZ Path"
-            #print RVIZPath
-            #print "carPath"
-            #print carPath
-            #pathDisplayPub.publish(RVIZPath)
             pathPub.publish(carPath)
         elif carPath != None:
             pubCarPath(carPath)
-            #pathDisplayPub.publish(RVIZPath)
         else:
             pass
-            #pathPub.publish(zeroPath)
-            #pathDisplayPub.publish(zeroPath)
         r.sleep()
-
-
 
 if __name__ == '__main__':
     try:
