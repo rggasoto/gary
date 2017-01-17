@@ -52,24 +52,22 @@ def getStampedPose(point,frame_id):
 def getROSPath(path,imageFrame,fixedFrame):
     global start
     ROSPath = Path()
-    DisplayPath = Path()
-    DisplayPath.header.frame_id = imageFrame
-    DisplayPath.header.stamp = rospy.Time.now()
     ROSPath.header.frame_id = fixedFrame
     ROSPath.header.stamp = rospy.Time.now()
 
     stPt = np.matrix([start.x, start.y, 0, 1])
     stMap = imageToMap(stPt.transpose())
-    startState = state(stMap.item(0), stMap.item(1), pi / 2 - start.theta, start.phi)
-    ROSPath.poses.append(getStampedPose(startState, fixedFrame))
+    #startStateDisp = state(stMap.item(0), stMap.item(1), pi / 2 - start.theta, start.phi)
+    startStateROS = state(stMap.item(0), stMap.item(1),start.theta - pi/2, start.phi)
+    ROSPath.poses.append(getStampedPose(startStateROS, fixedFrame))
     # Prepend path with current car location
     for i in path:
         # i.z is steering angle, which we don't want to transform
         pt = np.matrix([i.x, i.y, 0, 1])
         j = imageToMap(pt.transpose())
-        pathState = state(j.item(0), j.item(1), pi/2-i.theta, i.phi)
-        ROSPath.poses.append(getStampedPose(pathState,fixedFrame))
-    return ROSPath#, DisplayPath
+        pathStateROS = state(j.item(0), j.item(1), i.theta - pi/2, i.phi)
+        ROSPath.poses.append(getStampedPose(pathStateROS,fixedFrame))
+    return ROSPath
 
 def scale(xy):
     global mapResolution
@@ -268,7 +266,6 @@ def run():
     listener = tf.TransformListener()
 
     # Pubslishers
-    pathDisplayPub = rospy.Publisher("/pathDisplay", Path, queue_size=10) # you can use other types if desired
     pathPub = rospy.Publisher("/path", Path, queue_size=10)  # you can use other types if desired
     # Subscribers
     goalSub = rospy.Subscriber('move_base_simple/goal', PoseStamped, readGoal, queue_size=1) #change topic for best results
@@ -281,7 +278,7 @@ def run():
     # once transform is complete, start recording odometry for current car position
     odomSub = rospy.Subscriber('azcar_sim/odom', Odometry, readStart, queue_size=1) #change topic for best results
     rospy.sleep(.1)
-    r= rospy.Rate(10)#10Hz
+    r= rospy.Rate(200)#10Hz
     print("Please Set Goal Position with mouse. Click on '2D Nav Goal' and then select a position and heading.")
     print("Both the car and the goal position must be within the black space of the map to find a possible path.")
     while (not rospy.is_shutdown()):
@@ -294,7 +291,7 @@ def run():
 
         # Check For Path Request
         if goal != None and carPath == None:
-            carPath = planPath()
+            (carPath) = planPath()
             pathPub.publish(carPath)
         elif carPath != None:
             pubCarPath(carPath)
